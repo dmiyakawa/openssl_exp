@@ -25,6 +25,8 @@
 #include <openssl/err.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
+
+
 using namespace std;
 
 // data to be encrypted with the certificate.
@@ -312,43 +314,42 @@ void enc_dec_exp(const char* original_data) {
 
  free:
 #ifdef USE_MEMORY_KEY
-    if (!buf) {
+    if (buf) {
         delete [] buf;
     }
 #endif
-    if (!encrypted) {
+    if (encrypted) {
         delete [] encrypted;
     }
 
-    if (!priv_key) {
+    if (priv_key) {
         EVP_PKEY_free(priv_key);
     }
-    if (!bio2) {
+    if (bio2) {
         BIO_free(bio2);
-    }
-    if (!encrypted) {
-        delete[] encrypted;
     }
 
 #ifdef USE_CERTIFICATE
-    if (!pub_key) {
+    if (pub_key) {
         // It looks we don't need to call EVP_PKEY_Free()
         // when pub_key is obtained via X509_get_pubkey().
         // EVP_PKEY_free(pub_key);
     }
-    if (!cert) {
+    if (cert) {
         X509_free(cert);
     }
-    if (!certs) {
+    if (certs) {
         sk_X509_delete(certs, 0);
         sk_X509_free(certs);
     }
-    if (!cert_fp) {
+    if (cert_fp) {
         fclose(cert_fp);
     }
 
 #else
-    EVP_PKEY_free(pub_key);
+    if (pub_key) {
+        EVP_PKEY_free(pub_key);
+    }
 #endif
 }
 

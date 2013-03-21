@@ -256,21 +256,19 @@ void dh_experiment() {
 
  free:
 #ifdef SIDE2_DEFINED_OUTSIDE
-    if (!side2_pub_key) {
+    if (side2_pub_key) {
         BN_clear_free(side2_pub_key);
     }
 #else
-    if (!dh_side2) {
-        if (!dh_side2->p) {
-            BN_clear_free(dh_side2->p);
-        }
-        if (!dh_side2->g) {
-            BN_clear_free(dh_side2->g);
-        }
+    if (dh_side2) {
+        // Although we prepared p and g outsude DH_new()
+        // (by calling BN_new() separately),
+        // just calling DH_free(dh_side2) is enough here.
+        // DH_free() will take care of them too.
         DH_free(dh_side2);
     }
 #endif
-    if (!dh_side1) {
+    if (dh_side1) {
         DH_free(dh_side1);
     }
 }

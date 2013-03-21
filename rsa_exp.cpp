@@ -67,16 +67,15 @@ char* generate_key_pair() {
     ret[bptr_priv->length + bptr_pub->length] = '\0';
 
  free:
-    if (!bio_pub) {
+    if (bio_pub) {
         BIO_free(bio_pub);
     }
-    if (!bio_priv) {
+    if (bio_priv) {
         BIO_free(bio_priv);
     }
-    if (!rsa) {
+    if (rsa) {
         RSA_free(rsa);
     }
-
     return ret;
 }
 
