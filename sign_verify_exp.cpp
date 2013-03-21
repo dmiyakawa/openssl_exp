@@ -40,42 +40,13 @@ public:
 sign_result* sign() {
     sign_result *result = sign_result::obtain();
     EVP_MD_CTX *md_ctx = NULL;
-    unsigned char md_value[EVP_MAX_MD_SIZE];
-    unsigned int md_len;
-    // unsigned char *md_signed_value = NULL;
-    // size_t md_signed_len;
-
     EVP_PKEY *priv_key = NULL;
-    ENGINE *engine;
     EVP_PKEY_CTX *pkey_ctx = NULL;
     BIO *bio = NULL;
 
     OpenSSL_add_all_digests();
-    ENGINE_load_openssl();
-    // ENGINE_load_builtin_engines();
-
-    /*engine = ENGINE_get_first();
-    if (!engine) {
-        cerr << "No engine available" << endl;
-    }
-    // Obtain a functional reference for the engine.
-    if (!ENGINE_init(engine)) {
-        cerr << "Failed to initialize the engine" << endl;
-        }*/
     
     md_ctx = EVP_MD_CTX_create();
-
-    /*EVP_DigestInit_ex(&md_ctx, evp_md_sha1, NULL);
-    EVP_DigestUpdate(&md_ctx, message, strlen(message));
-    EVP_DigestFinal_ex(&md_ctx, md_value, &md_len);
-
-    ostringstream ss;
-    ss << hex << setfill( '0' );
-    for (int i = 0; i < md_len; i++) {
-        ss << std::setw( 2 ) << (int)md_value[i];
-    }
-    cout << "Signed Digest: " << ss.str() << endl;*/
-
     bio = BIO_new_file(key_path, "r");
     priv_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
     pkey_ctx = EVP_PKEY_CTX_new(priv_key, NULL);
@@ -183,7 +154,7 @@ bool verify(unsigned char* digest, size_t digest_len) {
         ERR_free_strings();
         goto free;
     }
-    pub_key = (EVP_PKEY *) X509_get_pubkey(cert);
+    pub_key = (EVP_PKEY *)X509_get_pubkey(cert);
 
     md_ctx = EVP_MD_CTX_create();
     if (!md_ctx) {
@@ -234,14 +205,6 @@ bool verify(unsigned char* digest, size_t digest_len) {
         goto free;
     }
     cout << "Verification successful" << endl;
-
-    /*
-        int EVP_DigestVerifyInit(EVP_MD_CTX *ctx, EVP_PKEY_CTX **pctx,
-                               const EVP_MD *type, ENGINE *e, EVP_PKEY *pkey);
-        int EVP_DigestVerifyUpdate(EVP_MD_CTX *ctx, const void *d, unsigned int cnt);
-        int EVP_DigestVerifyFinal(EVP_MD_CTX *ctx, unsigned char *sig, size_t siglen);
-     */
-
 
     result = true;
  free:
