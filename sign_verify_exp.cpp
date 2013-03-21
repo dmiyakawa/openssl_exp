@@ -20,8 +20,8 @@ const EVP_MD *evp_md_sha1 = EVP_sha1();
 class sign_result {
 public:
     bool success;
-    unsigned char *digest;
-    size_t digest_len;
+    unsigned char *sig;
+    size_t sig_len;
 
     static sign_result* obtain() {
         sign_result *result = new sign_result();
@@ -30,8 +30,8 @@ public:
     }
 
     static void release(sign_result *result) {
-        if (result->digest) {
-            delete [] result->digest;
+        if (result->sig) {
+            delete [] result->sig;
         }
         delete result;
     }
@@ -68,7 +68,7 @@ sign_result* sign() {
     }
     
     // First obtain the necessary length for digested data.
-    if (!EVP_DigestSignFinal(md_ctx, NULL, &result->digest_len)) {
+    if (!EVP_DigestSignFinal(md_ctx, NULL, &result->sig_len)) {
         cerr << "Failed to call EVP_DigestSignFinal() with NULL buffer" << endl;
         ERR_load_crypto_strings();
         cerr << ERR_reason_error_string(ERR_get_error()) << endl;
@@ -76,9 +76,9 @@ sign_result* sign() {
         goto free;
     }
 
-    result->digest = new unsigned char[result->digest_len];
-    cout << "size: " << result->digest_len << endl;
-    if (!EVP_DigestSignFinal(md_ctx, result->digest, &result->digest_len)) {
+    result->sig = new unsigned char[result->sig_len];
+    cout << "size: " << result->sig_len << endl;
+    if (!EVP_DigestSignFinal(md_ctx, result->sig, &result->sig_len)) {
         cerr << "Failed to call EVP_DigestSignFinal()" << endl;
         ERR_load_crypto_strings();
         cerr << ERR_reason_error_string(ERR_get_error()) << endl;
@@ -89,8 +89,8 @@ sign_result* sign() {
     {
         ostringstream ss;
         ss << hex << setfill( '0' );
-        for (size_t i = 0; i < result->digest_len; i++) {
-            ss << std::setw( 2 ) << (int)result->digest[i];
+        for (size_t i = 0; i < result->sig_len; i++) {
+            ss << std::setw( 2 ) << (int)result->sig[i];
         }
         cout << "Signed Digest: " << ss.str() << endl;
     }
@@ -125,7 +125,7 @@ sign_result* sign() {
     return result;
 }
 
-bool verify(unsigned char* digest, size_t digest_len) {
+bool verify(unsigned char* sig, size_t sig_len) {
     bool result = false;
 
     EVP_PKEY * pub_key = NULL;
@@ -195,7 +195,7 @@ bool verify(unsigned char* digest, size_t digest_len) {
         goto free;
     }
 
-    ret = EVP_DigestVerifyFinal(md_ctx, digest, digest_len);
+    ret = EVP_DigestVerifyFinal(md_ctx, sig, sig_len);
     if (ret != 1) {
         cerr << "EVP_DigestVerifyFinal() failed. ret=" << ret << endl;
 
@@ -242,7 +242,7 @@ int main() {
         return 1;
     }
     cout << endl;
-    if (!verify(result->digest, result->digest_len)) {
+    if (!verify(result->sig, result->sig_len)) {
         cerr << "verify() failed" << endl;
         return 1;
     }
