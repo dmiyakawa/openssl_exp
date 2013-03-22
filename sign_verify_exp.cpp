@@ -1,3 +1,26 @@
+/*
+   Copyright 2013 Daisuke Miyakawa
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ */
+/*
+  Experimental program which demonstrates signing/verifying a simple text
+  message.
+  By default this program will use a public/private key pair stored in data/.
+  If you want to use X509 certificate and its private key, you need to
+  prepare them by yourself.
+ */
+
 #include <iostream>
 #include <cstring>
 #include <sstream>
@@ -9,12 +32,20 @@
 
 using namespace std;
 
-const char* message  = "Test Message\n";
-const char* wrong_message  = "Wrong Message\n";
+const char* default_message  = "Default Test Message";
 
-const char* cert_path = "private/test.crt";
-const char* key_path = "private/test.key";
 const EVP_MD *evp_md_sha1 = EVP_sha1();
+
+// TODO: similar to enc_dec_exp. We may share the logic somewhere else.
+#ifdef USE_CERTIFICATE
+const char* cert_path = "private/test.crt";
+const char* priv_key_path = "private/test.key";
+#else
+const char* pub_key_path = "data/rsa_pubkey.pem";
+const char* priv_key_path = "data/rsa_privkey.pem";
+#endif
+
+
 
 class sign_result {
 public:
@@ -36,14 +67,15 @@ public:
     }
 };
 
-sign_result* sign() {
+sign_result* sign(const char* message) {
     sign_result *result = sign_result::obtain();
     EVP_MD_CTX *md_ctx = NULL;
     EVP_PKEY *priv_key = NULL;
     BIO *bio = NULL;
+    int ret;
 
     md_ctx = EVP_MD_CTX_create();
-    bio = BIO_new_file(key_path, "r");
+    bio = BIO_new_file(priv_key_path, "r");
     priv_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
 
     // Initialize EVP_MD_CTX with
@@ -53,25 +85,31 @@ sign_result* sign() {
     // If EVP_PKEY_CTX object is needed we can specify the second argument.
     // The object is actually part of md_ctx, so we should not free it
     // manually. EVP_MD_CTX_destroy() will take care of freeing it.
-    if (!EVP_DigestSignInit(md_ctx, NULL, evp_md_sha1, NULL, priv_key)) {
-        cerr << "Failed to call EVP_DigestSignInit()" << endl;
+    ret = EVP_DigestSignInit(md_ctx, NULL, evp_md_sha1, NULL, priv_key);
+    if (ret != 1) {
+        cerr << "Failed to call EVP_DigestSignInit(). ret=" << ret << endl;
         ERR_load_crypto_strings();
         cerr << ERR_reason_error_string(ERR_get_error()) << endl;
         ERR_free_strings();
         goto free;
     }
 
-    if (!EVP_DigestSignUpdate(md_ctx, message, strlen(message))) {
-        cerr << "Failed to call EVP_DigestSignUpdate()" << endl;
+    // Hash the message. This function can be called multiple times with
+    // different messages.
+    ret = EVP_DigestSignUpdate(md_ctx, message, strlen(message)); 
+    if (ret != 1) {
+        cerr << "Failed to call EVP_DigestSignUpdate(). ret=" << ret << endl;
         ERR_load_crypto_strings();
         cerr << ERR_reason_error_string(ERR_get_error()) << endl;
         ERR_free_strings();
         goto free;
     }
     
-    // First obtain the necessary length for signature.
-    if (!EVP_DigestSignFinal(md_ctx, NULL, &result->sig_len)) {
-        cerr << "Failed to call EVP_DigestSignFinal() with NULL buffer" << endl;
+    // Obtain the necessary length for signature.
+    ret = EVP_DigestSignFinal(md_ctx, NULL, &result->sig_len);
+    if (ret != 1) {
+        cerr << "Failed to call EVP_DigestSignFinal() with NULL buffer."
+             << " ret=" << ret << endl;
         ERR_load_crypto_strings();
         cerr << ERR_reason_error_string(ERR_get_error()) << endl;
         ERR_free_strings();
@@ -115,20 +153,23 @@ sign_result* sign() {
     return result;
 }
 
-bool verify(unsigned char* sig, size_t sig_len) {
+bool verify(const char *message, unsigned char* sig, size_t sig_len) {
     bool result = false;
 
     EVP_PKEY * pub_key = NULL;
-    EVP_PKEY_CTX *pkey_ctx = NULL;
     EVP_MD_CTX *md_ctx = NULL;
+    int ret;
+
+#ifdef USE_CERTIFICATE
     STACK_OF(X509) *certs = NULL;
     X509 *cert = NULL;
     FILE *cert_fp = NULL;
-    int ret;
+#endif
 
+
+#ifdef USE_CERTIFICATE
     // Load a certificate and retrieve a public key from it.
     cert_fp = fopen(cert_path, "r");
-
     if (!cert_fp) {
         cerr << "Failed to open \"" << cert_path << "\"" << endl;
         goto free;
@@ -145,6 +186,14 @@ bool verify(unsigned char* sig, size_t sig_len) {
         goto free;
     }
     pub_key = (EVP_PKEY *)X509_get_pubkey(cert);
+#else // USE_CERTIFICATE
+    {
+        BIO *in;
+        in = BIO_new_file(pub_key_path, "r");
+        pub_key = PEM_read_bio_PUBKEY(in, NULL,NULL, NULL);
+        BIO_free(in);
+    }
+#endif
 
     md_ctx = EVP_MD_CTX_create();
     if (!md_ctx) {
@@ -155,17 +204,7 @@ bool verify(unsigned char* sig, size_t sig_len) {
         goto free;
     }
 
-    pkey_ctx = EVP_PKEY_CTX_new(pub_key, NULL);
-    if (!pkey_ctx) {
-        cerr << "Failed to obtain EVP_PKEY_CTX" << endl;
-        ERR_load_crypto_strings();
-        cerr << ERR_reason_error_string(ERR_get_error()) << endl;
-        ERR_free_strings();
-        goto free;
-    }
-
-    ret = EVP_DigestVerifyInit(md_ctx, &pkey_ctx,
-                               evp_md_sha1, NULL, pub_key);
+    ret = EVP_DigestVerifyInit(md_ctx, NULL, evp_md_sha1, NULL, pub_key);
     if (ret != 1) {
         cerr << "EVP_DigestVerifyInit() failed. ret=" << ret << endl;
 
@@ -201,11 +240,9 @@ bool verify(unsigned char* sig, size_t sig_len) {
 
     if (md_ctx) {
         EVP_MD_CTX_destroy(md_ctx);
-        pkey_ctx = NULL;
     }
-    if (pkey_ctx) {
-        EVP_PKEY_CTX_free(pkey_ctx);
-    }
+
+#ifdef USE_CERTIFICATE
     if (pub_key) {
         // It looks we don't need to call EVP_PKEY_Free().
         // pub_key is part of the certificate.
@@ -220,19 +257,33 @@ bool verify(unsigned char* sig, size_t sig_len) {
     if (cert_fp) {
         fclose(cert_fp);
     }
+#else
+    if (pub_key) {
+        EVP_PKEY_free(pub_key);
+    }
+#endif
 
     return result;
 }
 
-int main() {
-    sign_result* result = sign();
+int main(int argc, char** argv) {
+    const char* message;
+    if (argc > 1) {
+        message = argv[1];
+    } else {
+        message = default_message;
+    }
+    cout << "Will use \"" << message << "\" as a message to sign" << endl;
+    cout << endl;
+
+    sign_result* result = sign(message);
     if (!result->success) {
         cerr << "sign() failed" << endl;
         sign_result::release(result);
         return 1;
     }
     cout << endl;
-    if (!verify(result->sig, result->sig_len)) {
+    if (!verify(message, result->sig, result->sig_len)) {
         cerr << "verify() failed" << endl;
         return 1;
     }

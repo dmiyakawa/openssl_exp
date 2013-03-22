@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-TARGETS = dh_exp dh_exp2 rsa_exp enc_dec_exp_cert_file enc_dec_exp_cert_mem enc_dec_exp_rsa_file enc_dec_exp_rsa_mem openssl_php sign_verify_exp
+TARGETS = dh_exp dh_exp2 rsa_exp enc_dec_exp_cert_file enc_dec_exp_cert_mem enc_dec_exp_rsa_file enc_dec_exp_rsa_mem openssl_php sign_verify_exp_cert sign_verify_exp_rsa
 
 all: $(TARGETS)
 
@@ -37,8 +37,12 @@ enc_dec_exp_rsa_mem: enc_dec_exp.cpp data/memory_key_rsa.h
 rsa_exp: rsa_exp.cpp
 	g++ -Wall $^ -lssl -lcrypto -o $@
 
-sign_verify_exp: sign_verify_exp.cpp
+sign_verify_exp_cert: sign_verify_exp.cpp
+	g++ -Wall $^ -lssl -lcrypto -DUSE_CERTIFICATE -o $@
+
+sign_verify_exp_rsa: sign_verify_exp.cpp
 	g++ -Wall $^ -lssl -lcrypto -o $@
+
 
 openssl_php: openssl.php
 	cp openssl.php /var/www/php/
