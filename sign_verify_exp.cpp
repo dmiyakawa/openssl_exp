@@ -3,7 +3,6 @@
 #include <sstream>
 #include <iomanip>
 
-#include <openssl/engine.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
@@ -41,17 +40,20 @@ sign_result* sign() {
     sign_result *result = sign_result::obtain();
     EVP_MD_CTX *md_ctx = NULL;
     EVP_PKEY *priv_key = NULL;
-    EVP_PKEY_CTX *pkey_ctx = NULL;
     BIO *bio = NULL;
 
-    OpenSSL_add_all_digests();
-    
     md_ctx = EVP_MD_CTX_create();
     bio = BIO_new_file(key_path, "r");
     priv_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
-    pkey_ctx = EVP_PKEY_CTX_new(priv_key, NULL);
 
-    if (!EVP_DigestSignInit(md_ctx, &pkey_ctx, evp_md_sha1, NULL, priv_key)) {
+    // Initialize EVP_MD_CTX with
+    //  - a private key prepared above, and
+    //  - a default engine (NULL).
+    // SHA1 will be used for exact algorithm.
+    // If EVP_PKEY_CTX object is needed we can specify the second argument.
+    // The object is actually part of md_ctx, so we should not free it
+    // manually. EVP_MD_CTX_destroy() will take care of freeing it.
+    if (!EVP_DigestSignInit(md_ctx, NULL, evp_md_sha1, NULL, priv_key)) {
         cerr << "Failed to call EVP_DigestSignInit()" << endl;
         ERR_load_crypto_strings();
         cerr << ERR_reason_error_string(ERR_get_error()) << endl;
@@ -67,7 +69,7 @@ sign_result* sign() {
         goto free;
     }
     
-    // First obtain the necessary length for digested data.
+    // First obtain the necessary length for signature.
     if (!EVP_DigestSignFinal(md_ctx, NULL, &result->sig_len)) {
         cerr << "Failed to call EVP_DigestSignFinal() with NULL buffer" << endl;
         ERR_load_crypto_strings();
@@ -76,6 +78,8 @@ sign_result* sign() {
         goto free;
     }
 
+    // Now obtain the content by calling EVP_DigestSignFinal() again
+    // with data buffer with the specified length.
     result->sig = new unsigned char[result->sig_len];
     cout << "size: " << result->sig_len << endl;
     if (!EVP_DigestSignFinal(md_ctx, result->sig, &result->sig_len)) {
@@ -100,15 +104,6 @@ sign_result* sign() {
 
     if (md_ctx) {
         EVP_MD_CTX_destroy(md_ctx);
-        // EVP_MD_CTX_cleanup() (which is called inside destroy variant)
-        // will take care of pkey_ctx too.
-        pkey_ctx = NULL;
-    }
-
-    if (pkey_ctx) {
-        EVP_PKEY_CTX_free(pkey_ctx);
-        // EVP_PKEY_CTX_free() will take care of priv_key too.
-        priv_key = NULL;
     }
     if (priv_key) {
         EVP_PKEY_free(priv_key);
@@ -116,11 +111,6 @@ sign_result* sign() {
     if (bio) {
         BIO_free(bio);
     }
-
-    // Release a functional reference for the engine.
-    /*if (!ENGINE_finish(engine)) {
-        cerr << "Failed to finish the engine" << endl;
-        }*/
 
     return result;
 }
