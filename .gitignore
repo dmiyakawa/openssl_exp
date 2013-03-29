@@ -11,3 +11,4 @@ openssl_php
 rsa_exp
 sign_verify_exp_cert
 sign_verify_exp_rsa
+sign_verify_exp_dynamic

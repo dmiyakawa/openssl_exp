@@ -28,7 +28,7 @@ char* generate_key_pair() {
     char* ret = NULL;
 
     rsa = RSA_generate_key(1024, RSA_3, NULL, NULL);
-    if (!RSA_check_key(rsa)) {
+    if (RSA_check_key(rsa) != 1) {
         goto free;
     }
 

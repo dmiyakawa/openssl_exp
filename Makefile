@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-TARGETS = dh_exp dh_exp2 rsa_exp enc_dec_exp_cert_file enc_dec_exp_cert_mem enc_dec_exp_rsa_file enc_dec_exp_rsa_mem openssl_php sign_verify_exp_cert sign_verify_exp_rsa
+TARGETS = dh_exp dh_exp2 rsa_exp enc_dec_exp_cert_file enc_dec_exp_cert_mem enc_dec_exp_rsa_file enc_dec_exp_rsa_mem openssl_php sign_verify_exp_cert sign_verify_exp_rsa sign_verify_exp_dynamic
+
+
+CFLAGS = -Wall -std=c++0x
+# CFLAGS = -Wall -std=c++11
 
 all: $(TARGETS)
 
@@ -38,11 +42,13 @@ rsa_exp: rsa_exp.cpp
 	g++ -Wall $^ -lssl -lcrypto -o $@
 
 sign_verify_exp_cert: sign_verify_exp.cpp
-	g++ -Wall $^ -lssl -lcrypto -DUSE_CERTIFICATE -o $@
+	g++ $(CFLAGS) $^ -lssl -lcrypto -DUSE_CERTIFICATE -o $@
+
+sign_verify_exp_dynamic: sign_verify_exp.cpp
+	g++ $(CFLAGS) $^ -lssl -lcrypto -DUSE_DYNAMIC_KEY -o $@
 
 sign_verify_exp_rsa: sign_verify_exp.cpp
-	g++ -Wall $^ -lssl -lcrypto -o $@
-
+	g++ $(CFLAGS) $^ -lssl -lcrypto -o $@
 
 openssl_php: openssl.php
 	cp openssl.php /var/www/php/
