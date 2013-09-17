@@ -5,6 +5,7 @@ dh_exp2
 enc_dec_exp_cert_file
 enc_dec_exp_cert_mem
 enc_dec_exp_rsa_file
+enc_dec_exp_rsa_file_file_passphrase
 enc_dec_exp_rsa_mem
 openssl_php
 rsa_exp
