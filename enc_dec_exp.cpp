@@ -38,8 +38,8 @@ static const char* default_original_data = "default-original-data";
 
 #ifdef USE_CERTIFICATE
 
-const char* pub_path = "private/test.crt";
-const char* key_path = "private/test.key";
+const char* pub_path = "data/test.crt";
+const char* key_path = "data/test.key";
 
 // This header should contain "memory_key" variable, which has
 // RSA private key with appropriate line feeds.
@@ -52,7 +52,7 @@ const char* key_path = "private/test.key";
 // const char* memory_key = "-----BEGIN RSA PRIVATE KEY-----\n
 // MII..
 // -----END RSA PRIVATE KEY-----";
-#include "private/memory_key_cert.h"
+#include "data/memory_key_cert.h"
 
 
 #ifdef DECODE_PREENCODED_SRC
