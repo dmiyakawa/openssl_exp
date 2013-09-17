@@ -38,14 +38,14 @@ static const char* default_original_data = "default-original-data";
 
 #ifdef USE_CERTIFICATE
 
-// Note to readers:
+// Note to code readers:
 // This project doen't include data in private/.
 // Prepare your own certificate and key in PEM format.
 // If those cert/key are correct, you should be able to see contents by
 // following commands:
 // > openssl x509 -in private/test.crt -noout -text
 // > openssl rsa -in private/test.key -noout -text
-const char* cert_path = "private/test.crt";
+const char* pub_path = "private/test.crt";
 const char* key_path = "private/test.key";
 
 // This header should contain "memory_key" variable, which has
@@ -80,14 +80,37 @@ static const char* preencoded_src =
     "c2fc7d528acd46fe56eb857a14a202ed";
 #endif
 
+#ifdef USE_PASS_PHRASE
+#error "Sorry, USE_PASS_PHROSE cannot be used with USE_CERTIFICATE"
+#else
+const char* pass_phrase = NULL;
+#endif
 
 #else // USE_CERTIFICATE
 
-// Coming from openssl.php
-// > openssl rsa -pubin -in data/rsa_pubkey.pem -noout -text
-// > openssl rsa -in data/rsa_privkey.pem -noout -text
-const char* cert_path = "data/rsa_pubkey.pem";
-const char* key_path = "data/rsa_privkey.pem";
+#ifdef USE_PASS_PHRASE
+
+// You can generate other private/public key pairs using openssl command:
+// > openssl genrsa -des3 -out data/3des_protected.key
+// (enter a pass phrase like "hogehoge")
+// > openssl rsa -in data/3des_protected.key -pubout > data/3des_protected.pub
+//
+// To check contents inside keys, use following commands:
+// > openssl rsa -in data/3des_protected.key -noout -text
+// (enter the pass phrase)
+// > openssl rsa -pubin -in data/3des_protected.pub -noout -text
+const char* pass_phrase = "hogehoge";
+const char* pub_path = "data/3des_protected.pub";
+const char* key_path = "data/3des_protected.key";
+
+#else 
+
+const char* pass_phrase = NULL;
+const char* pub_path = "data/raw.pub";
+const char* key_path = "data/raw.key";
+
+#endif // USE_PASS_PHRASE
+
 
 #include "data/memory_key_rsa.h"
 
@@ -103,8 +126,6 @@ static const char* preencoded_src =
 #endif
 
 #endif
-
-const char* pass_phrase = NULL;
 
 int hex2dec(char c) {
     if ('0' <= c && c <= '9') {
@@ -151,17 +172,20 @@ void decrypt_and_show(EVP_PKEY *priv_key,
     int decrypted_size = RSA_private_decrypt(encrypted_len, encrypted,
                                              decrypted,
                                              priv_rsa, RSA_PKCS1_PADDING);
-    cout << "max_size: " << max_size
-         << ", decrypted_size: " << decrypted_size << endl;
+
+    //cout << "max_size: " << max_size
+    // << ", decrypted_size: " << decrypted_size << endl;
 
     if (decrypted_size < 0) {
         cerr << "Failed to decrypt the encrypted value." << endl;
     } else {
+        cout << "Successfully decrypted the encrypted data." << endl;
+        cout << "Decrypted string: \"";
         decrypted[decrypted_size] = '\0';
         for (int i = 0; i < decrypted_size; i++) {
             cout << decrypted[i];
         }
-        cout << endl;
+        cout << "\"" << endl;
     }
     delete [] decrypted;
 }
@@ -187,33 +211,43 @@ void enc_dec_exp(const char* original_data) {
     char *buf = NULL;
 #endif
 
-    // Initialize misc things
+    // Initialize misc stuff.
     // For this exact case, some are not needed.
     SSL_library_init();
     OpenSSL_add_all_ciphers();
     OpenSSL_add_all_digests();
     OpenSSL_add_all_algorithms();
 
-    cout << "original value: \"" << original_data
-         << "\"" << endl << endl;
+    cout << "Original string (that will be encoded/decoded): \""
+         << original_data
+         << "\""
+         << endl << endl;
 
 #ifdef USE_CERTIFICATE
-    cert_fp = fopen(cert_path, "r");
+    cout << "Obtaining a X509 certificate from \""
+         << pub_path
+         << "\"" << endl;
+
+    cert_fp = fopen(pub_path, "r");
     if (!cert_fp) {
-        cerr << "Failed to open \"" << cert_path << "\"" << endl;
+        cerr << "Failed to open \"" << pub_path << "\"" << endl;
         goto free;
     }
     certs = sk_X509_new_null();
     cert = PEM_read_X509(cert_fp, NULL, NULL, NULL);
     if (!cert) {
         cerr << "Failed to create X509 object from \""
-             << cert_path << "\"" << endl;
+             << pub_path << "\"" << endl;
     }
     pub_key = (EVP_PKEY *) X509_get_pubkey(cert);
 #else
+    cout << "Obtaining a public key from \""
+         << pub_path
+         << "\"" << endl;
+
     {
         BIO *in;
-        in = BIO_new_file(cert_path, "r");
+        in = BIO_new_file(pub_path, "r");
         pub_key = PEM_read_bio_PUBKEY(in, NULL,NULL, NULL);
         BIO_free(in);
     }
@@ -224,17 +258,20 @@ void enc_dec_exp(const char* original_data) {
         goto free;
     }
 
+    cout << "Successfully obtained a public key. "
+         << "Public key type: ";
     switch (pub_key->type) {
     case EVP_PKEY_RSA:
-        cout << "pub_key type: rsa" << endl;
+        cout << "rsa" << endl;
         break;
     case EVP_PKEY_RSA2:
-        cout << "pub_key type: rsa2" << endl;
+        cout << "rsa2" << endl;
         break;
     default:
-        cout << "pub_key type: unknown" << endl;
+        cout << "unknown" << endl;
     }
-
+    cout << "Try to encrypt the original string."
+         << endl << endl;
 
     if (!pub_key->pkey.rsa) {
         cerr << "Cannot obtain RSA object from pub_key" << endl;
@@ -250,7 +287,9 @@ void enc_dec_exp(const char* original_data) {
     if (encrypted_size < 0) {
         cerr << "Failed to encrypt a given value." << endl;
         ERR_load_crypto_strings();
-        cerr << ERR_reason_error_string(ERR_get_error()) << endl;
+        cerr << "Reason from OpenSSL library: \""
+             << ERR_reason_error_string(ERR_get_error())
+             << "\"" << endl;
         ERR_free_strings();
         goto free;
     }
@@ -262,40 +301,63 @@ void enc_dec_exp(const char* original_data) {
             int c = (int)encrypted[i];
             ss << std::setw( 2 ) << c;
         }
-        cout << "Encrypted data:" << endl;
+        cout << "Encryption successful" << endl;
+        cout << "Information about the encrypted data:" << endl;
         cout << "  size=" << encrypted_size << endl;
         cout << "  hex-encoded=\"" << ss.str() << "\"" << endl;
-        cout << endl;
     }
+    cout << endl;
+
+    cout << "Next, obtain a private key associated with the public key. "
+         << endl;
 
 #ifdef USE_MEMORY_KEY
+    cout << "This example will use a private key stored in the program."
+         << endl;
     buf = new char[strlen(memory_key) + 1];
     strcpy(buf, memory_key);
     bio2 = BIO_new_mem_buf(buf, -1);
 #else
+    cout << "This example will use a private key stored in the file \""
+         << key_path
+         << "\"" << endl;
     bio2 = BIO_new_file(key_path, "r");
 #endif
 
     if (pass_phrase == NULL) {
+        cout << "No pass phrase is specified." << endl;
         priv_key = PEM_read_bio_PrivateKey(bio2, NULL,NULL, NULL);
     } else {
+        cerr << "Will use pass phrase \"" << pass_phrase << "\"" << endl;
         char *copied_pass_phrase = new char[strlen(pass_phrase)+1];
         strcpy(copied_pass_phrase, pass_phrase);
         priv_key = PEM_read_bio_PrivateKey(bio2, NULL,NULL,
                                            copied_pass_phrase);
         delete[] copied_pass_phrase;
     }
+    cout << endl;
 
     if (priv_key == NULL) {
-        cerr << "Failed to obtain priv_key." << endl;
+        cerr << "Failed to obtain a private key." << endl;
         ERR_load_crypto_strings();
-        cerr << ERR_reason_error_string(ERR_get_error()) << endl;
+        cerr << "Reason from OpenSSL library: \""
+             << ERR_reason_error_string(ERR_get_error())
+             << "\"" << endl;
         ERR_free_strings();
         goto free;
     }
-    cout << "Succeeded to obtain private key." << endl;
+
+    cout << "Successfully obtained a private key." << endl;
+    cout << "Try to decrypt the encrypted data, and obtain the original."
+         << endl
+         << endl;
 
     decrypt_and_show(priv_key, encrypted, encrypted_size);
+
+    cout << endl;
+    cout << "Demonstration done. Check if the original string and "
+         << "the decrypted one is exactly same."
+         << endl << endl;
 
 #ifdef DECODE_PREENCODED_SRC
     {
@@ -354,9 +416,16 @@ void enc_dec_exp(const char* original_data) {
 }
 
 int main(int argc, char **argv) {
+    cout << "This program will demonstrate how a given string will be "
+         << "encrypted and decrypted using a provided RSA key pair."
+         << endl;
     if (argc < 2) {
+        cout << "Note: you can specify a string to be encrypted/decrypted "
+             << "using an argument."
+             << endl << endl;
         enc_dec_exp(default_original_data);
     } else {
+        cout << endl;
         enc_dec_exp(argv[1]);
     }
     return 0;

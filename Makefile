@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-TARGETS = dh_exp dh_exp2 rsa_exp enc_dec_exp_cert_file enc_dec_exp_cert_mem enc_dec_exp_rsa_file enc_dec_exp_rsa_mem openssl_php sign_verify_exp_cert sign_verify_exp_rsa sign_verify_exp_dynamic
+TARGETS = dh_exp dh_exp2 rsa_exp enc_dec_exp_cert_file enc_dec_exp_cert_mem enc_dec_exp_rsa_file enc_dec_exp_rsa_mem openssl_php sign_verify_exp_cert sign_verify_exp_rsa sign_verify_exp_dynamic enc_dec_exp_rsa_file_passphrase
 
 
 CFLAGS = -Wall -std=c++0x
@@ -34,6 +34,10 @@ enc_dec_exp_cert_mem: enc_dec_exp.cpp private/memory_key_cert.h
 
 enc_dec_exp_rsa_file: enc_dec_exp.cpp
 	g++ -Wall enc_dec_exp.cpp -lssl -lcrypto -o $@
+
+# Uses Password-protected rsa key
+enc_dec_exp_rsa_file_passphrase: enc_dec_exp.cpp
+	g++ -Wall enc_dec_exp.cpp -DUSE_PASS_PHRASE -lssl -lcrypto -o $@
 
 enc_dec_exp_rsa_mem: enc_dec_exp.cpp data/memory_key_rsa.h
 	g++ -Wall enc_dec_exp.cpp -DUSE_MEMORY_KEY -lssl -lcrypto -o $@
