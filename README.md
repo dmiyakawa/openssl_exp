@@ -7,22 +7,6 @@ Lisensed under the Apache License 2.0.
 
 Tested with Debian squeeze and wheezy.
 
-# Caution!
-
-By default Makefile won't compile because private/ directory is not available
-here. You need to prepare a X509 certificate (possibly self-signed one)
-yourself.
-
-With OpenSSL, you should be able to see contents by following commands:
-
-```
-> mkdir private
-> openssl genrsa > private/test.key
-> openssl req -new -key private/test.key -out private/test.csr
-(Skip as you like)
-> openssl x509 -req -in private/test.csr -out private/test.crt -signkey private/test.key
-```
-
 ## List of contents
 
 * dh_exp: Diffie-Hellman key exchange

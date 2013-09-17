@@ -38,13 +38,6 @@ static const char* default_original_data = "default-original-data";
 
 #ifdef USE_CERTIFICATE
 
-// Note to code readers:
-// This project doen't include data in private/.
-// Prepare your own certificate and key in PEM format.
-// If those cert/key are correct, you should be able to see contents by
-// following commands:
-// > openssl x509 -in private/test.crt -noout -text
-// > openssl rsa -in private/test.key -noout -text
 const char* pub_path = "private/test.crt";
 const char* key_path = "private/test.key";
 
