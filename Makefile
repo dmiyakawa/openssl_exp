@@ -29,7 +29,7 @@ dh_exp2: dh_exp.cpp
 enc_dec_exp_cert_file: enc_dec_exp.cpp
 	g++ -Wall enc_dec_exp.cpp -DUSE_CERTIFICATE -lssl -lcrypto -o $@
 
-enc_dec_exp_cert_mem: enc_dec_exp.cpp private/memory_key_cert.h 
+enc_dec_exp_cert_mem: enc_dec_exp.cpp data/memory_key_cert.h 
 	g++ -Wall enc_dec_exp.cpp -DUSE_CERTIFICATE -DUSE_MEMORY_KEY -lssl -lcrypto -o $@
 
 enc_dec_exp_rsa_file: enc_dec_exp.cpp
